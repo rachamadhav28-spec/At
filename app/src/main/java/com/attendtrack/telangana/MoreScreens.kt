@@ -256,7 +256,7 @@ private fun MotionSwitch() {
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(label, fontWeight = FontWeight.Medium)
+                        Text(label, fontWeight = FontWeight.Medium, color = if (sel) AppOnAccent else Color.White)
                     }
                 }
             }
@@ -265,11 +265,101 @@ private fun MotionSwitch() {
 }
 
 @Composable
+private fun ThemePicker() {
+    val context = LocalContext.current
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Colour theme", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Pick a colour pair for the whole app.",
+                style = MaterialTheme.typography.bodyLarge, color = moreMuted
+            )
+            Themes.all.chunked(2).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    row.forEach { t ->
+                        val sel = Themes.current == t
+                        val shape = RoundedCornerShape(16.dp)
+                        Row(
+                            Modifier
+                                .weight(1f)
+                                .clip(shape)
+                                .border(if (sel) 2.dp else 1.dp, if (sel) AppAccent else AppBorder, shape)
+                                .clickable { Themes.save(context, t) }
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row {
+                                Box(Modifier.size(22.dp).background(t.strong, RoundedCornerShape(topStart = 11.dp, bottomStart = 11.dp)))
+                                Box(Modifier.size(22.dp).background(t.light, RoundedCornerShape(topEnd = 11.dp, bottomEnd = 11.dp)))
+                            }
+                            Text(t.name, fontSize = 13.sp, maxLines = 2)
+                        }
+                    }
+                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+private fun shortName(n: String?): String = when (n) {
+    null -> "Free"
+    Timetable.MATHS -> "Maths"
+    Timetable.CHEM -> "Chem"
+    Timetable.ENG -> "English"
+    Timetable.DLD -> "DLD"
+    Timetable.CLAB -> "Chem lab"
+    Timetable.ELAB -> "Eng lab"
+    Timetable.GRAPH -> "Graphics"
+    else -> n
+}
+
+@Composable
 fun MoreScreen(vm: AttendViewModel) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var msg by remember { mutableStateOf("") }
     var confirmRestore by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var ttPreview by remember { mutableStateOf<TimetableResult?>(null) }
+    var attPreview by remember { mutableStateOf<AttendanceResult?>(null) }
+    var roll by remember {
+        mutableStateOf(context.getSharedPreferences("attendtrack", 0).getString("roll_no", "") ?: "")
+    }
+
+    val ttPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            busy = true
+            msg = "Reading timetable..."
+            scope.launch {
+                val o = PdfImport.readTimetable(context, uri)
+                busy = false
+                if (o.value != null) {
+                    ttPreview = o.value
+                    msg = ""
+                } else msg = o.error ?: "Could not read the PDF"
+            }
+        }
+    }
+    val attPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            busy = true
+            msg = "Reading attendance..."
+            scope.launch {
+                val o = PdfImport.readAttendance(context, uri, roll.trim())
+                busy = false
+                if (o.value != null) {
+                    attPreview = o.value
+                    msg = ""
+                } else msg = o.error ?: "Could not read the PDF"
+            }
+        }
+    }
 
     val csvMaker = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv")
@@ -327,6 +417,47 @@ fun MoreScreen(vm: AttendViewModel) {
             }
         }
         item { MotionSwitch() }
+        item { ThemePicker() }
+        item {
+            MoreCard(
+                "Timetable from PDF",
+                "Upload your class timetable PDF. You will see what was read before it replaces the current timetable."
+            ) {
+                Button(onClick = { if (!busy) ttPicker.launch(arrayOf("application/pdf")) }) {
+                    Text("Upload timetable")
+                }
+                OutlinedButton(onClick = {
+                    Timetable.reset(context)
+                    msg = "Timetable reset to the built-in one"
+                }) { Text("Reset") }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Attendance from PDF", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Type your roll number, then upload your class attendance PDF. Your row is found and the percentage is filled in.",
+                        style = MaterialTheme.typography.bodyLarge, color = moreMuted
+                    )
+                    OutlinedTextField(
+                        value = roll,
+                        onValueChange = {
+                            roll = it
+                            context.getSharedPreferences("attendtrack", 0).edit()
+                                .putString("roll_no", it).apply()
+                        },
+                        label = { Text("Roll number") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Button(onClick = {
+                        if (roll.isBlank()) msg = "Type your roll number first"
+                        else if (!busy) attPicker.launch(arrayOf("application/pdf"))
+                    }) { Text("Upload attendance PDF") }
+                }
+            }
+        }
         item {
             MoreCard(
                 "Backup",
@@ -353,6 +484,72 @@ fun MoreScreen(vm: AttendViewModel) {
                 fontSize = 13.sp
             )
         }
+    }
+
+    ttPreview?.let { r ->
+        AlertDialog(
+            onDismissRequest = { ttPreview = null },
+            title = { Text("Use this timetable?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Read ${r.daysRead} of 6 days. Periods are 10, 11, 12, 2, 3, 4.", color = moreMuted, fontSize = 13.sp)
+                    Timetable.days.forEach { d ->
+                        val list = r.week[d] ?: emptyList()
+                        Text(
+                            d.name.take(3) + ": " + list.joinToString(", ") { shortName(it) },
+                            fontSize = 13.sp
+                        )
+                    }
+                    if (r.unread.isNotEmpty()) {
+                        Text("Not recognised: " + r.unread.joinToString("; "), color = moreMuted, fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    Timetable.save(context, r.week)
+                    ttPreview = null
+                    msg = "Timetable updated"
+                }) { Text("Use it") }
+            },
+            dismissButton = { TextButton(onClick = { ttPreview = null }) { Text("Cancel") } }
+        )
+    }
+
+    attPreview?.let { r ->
+        val hasData = r.perSubject.isNotEmpty() || r.overall != null
+        AlertDialog(
+            onDismissRequest = { attPreview = null },
+            title = { Text(if (hasData) "Fill attendance?" else "Row found, numbers unclear") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (r.perSubject.isNotEmpty()) {
+                        r.perSubject.forEach { (n, p) ->
+                            val pc = if (p.second == 0) 0.0 else p.first * 100.0 / p.second
+                            Text("$n: ${p.first} of ${p.second} (${"%.1f".format(pc)}%)", fontSize = 13.sp)
+                        }
+                    } else if (r.overall != null) {
+                        val (a, h) = r.overall
+                        Text("Overall: $a attended of $h held (${"%.1f".format(a * 100.0 / h)}%)")
+                        Text("Subject columns were not detected, so this total is spread across your subjects.", color = moreMuted, fontSize = 12.sp)
+                    } else {
+                        Text("Read from your row: ${r.rowText}", fontSize = 13.sp)
+                        Text("Nothing was changed. Send a sample of this PDF so the reader can be tuned to its layout.", color = moreMuted, fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                if (hasData) {
+                    TextButton(onClick = {
+                        vm.applyAttendance(r) { m -> msg = m }
+                        attPreview = null
+                    }) { Text("Fill it") }
+                } else TextButton(onClick = { attPreview = null }) { Text("OK") }
+            },
+            dismissButton = {
+                if (hasData) TextButton(onClick = { attPreview = null }) { Text("Cancel") }
+            }
+        )
     }
 
     if (confirmRestore) {

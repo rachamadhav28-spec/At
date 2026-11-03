@@ -37,15 +37,26 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 
+private const val INTRO_MAX_OPENS = 3
+
 class MainActivity : ComponentActivity() {
     private val vm: AttendViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Motion.load(this)
+        Themes.load(this)
+        Timetable.load(this)
+        // The intro plays only the first 3 times the app is opened.
+        val prefs = getSharedPreferences("attendtrack", 0)
+        val opens = prefs.getInt("intro_opens", 0)
+        val playIntro = savedInstanceState == null && opens < INTRO_MAX_OPENS
+        if (savedInstanceState == null && opens < INTRO_MAX_OPENS) {
+            prefs.edit().putInt("intro_opens", opens + 1).apply()
+        }
         setContent {
             GlassTheme {
-                var showIntro by rememberSaveable { mutableStateOf(true) }
+                var showIntro by rememberSaveable { mutableStateOf(playIntro) }
                 AnimatedContent(
                     targetState = showIntro,
                     transitionSpec = {
@@ -97,8 +108,8 @@ fun AppShell(vm: AttendViewModel) {
                         },
                         label = { Text(t.label) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color.White,
-                            selectedTextColor = Color.White,
+                            selectedIconColor = AppOnAccent,
+                            selectedTextColor = AppOnAccent,
                             indicatorColor = AppAccent,
                             unselectedIconColor = Color(0xFF9A9A9A),
                             unselectedTextColor = Color(0xFF9A9A9A)

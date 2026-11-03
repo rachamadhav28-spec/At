@@ -5,83 +5,33 @@ import android.media.AudioFormat
 import android.media.AudioTrack
 import android.os.Handler
 import android.os.Looper
-import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.sin
 import kotlin.random.Random
 
+/** Generated mechanical-keyboard clicks, one per typed letter. No audio files needed. */
 object IntroSound {
     private const val RATE = 22050
-    private val cache = HashMap<String, ShortArray>()
     private const val TWO_PI = 6.2831855f
+    private val cache = HashMap<String, ShortArray>()
+    private val rnd = Random(42)
 
-    private fun make(name: String, seconds: Float, f: (Float) -> Float): ShortArray =
-        cache.getOrPut(name) {
-            val n = (seconds * RATE).toInt()
-            val out = ShortArray(n)
-            for (i in 0 until n) {
-                val t = i / RATE.toFloat()
-                val v = f(t).coerceIn(-1f, 1f)
-                out[i] = (v * 32000f).toInt().toShort()
-            }
-            out
+    /** variant 0..3 = slightly different key pitches, 4 = space bar (deeper). */
+    private fun keyBuf(variant: Int): ShortArray = cache.getOrPut("key$variant") {
+        val seconds = if (variant == 4) 0.09f else 0.06f
+        val n = (seconds * RATE).toInt()
+        val out = ShortArray(n)
+        val r = Random(100 + variant)
+        val pitch = if (variant == 4) 190f else 1500f + variant * 260f
+        for (i in 0 until n) {
+            val t = i / RATE.toFloat()
+            // sharp click: filtered noise burst + short resonant tone, then a soft thock
+            val click = (r.nextFloat() * 2f - 1f) * exp(-170f * t) * 0.75f
+            val tone = sin(TWO_PI * pitch * t) * exp(-95f * t) * 0.55f
+            val thock = sin(TWO_PI * (pitch / 5f) * t) * exp(-55f * t) * 0.45f
+            out[i] = ((click + tone + thock).coerceIn(-1f, 1f) * 30000f).toInt().toShort()
         }
-
-    private fun boomBuf(): ShortArray {
-        var phase = 0f
-        val rnd = Random(7)
-        return make("boom", 1.0f) { t ->
-            val freq = 36f + 74f * exp(-7f * t)
-            phase += TWO_PI * freq / RATE
-            val body = sin(phase) * exp(-3.0f * t)
-            val click = (rnd.nextFloat() * 2f - 1f) * exp(-45f * t) * 0.5f
-            body * 0.95f + click
-        }
-    }
-
-    private fun hitBuf(): ShortArray {
-        var phase = 0f
-        val rnd = Random(5)
-        return make("hit", 0.5f) { t ->
-            val freq = 48f + 100f * exp(-16f * t)
-            phase += TWO_PI * freq / RATE
-            val body = sin(phase) * exp(-8f * t)
-            val click = (rnd.nextFloat() * 2f - 1f) * exp(-60f * t) * 0.45f
-            body * 0.95f + click
-        }
-    }
-
-    private fun whooshBuf(): ShortArray {
-        var y = 0f
-        val rnd = Random(11)
-        return make("whoosh", 0.8f) { t ->
-            val a = 0.03f + 0.5f * (t / 0.8f)
-            y += a * ((rnd.nextFloat() * 2f - 1f) - y)
-            val s = sin(PI.toFloat() * t / 0.8f)
-            y * s * s * 1.6f
-        }
-    }
-
-    private fun shineBuf(): ShortArray =
-        make("shine", 1.4f) { t ->
-            val attack = (t / 0.01f).coerceAtMost(1f)
-            val env = attack * exp(-2.8f * t)
-            val tau = TWO_PI * t
-            (sin(tau * 880f) * 0.5f + sin(tau * 1320f) * 0.3f +
-                sin(tau * 1760f) * 0.25f + sin(tau * 2640f) * 0.15f) * env * 0.6f
-        }
-
-    private fun droneBuf(): ShortArray {
-        var phase = 0f
-        val rnd = Random(3)
-        return make("drone", 1.6f) { t ->
-            val p = t / 1.6f
-            val freq = 55f + 55f * p
-            phase += TWO_PI * freq / RATE
-            val env = if (p < 0.75f) p / 0.75f else (1f - p) / 0.25f
-            (sin(phase) * 0.7f + sin(phase * 2f) * 0.2f +
-                (rnd.nextFloat() * 2f - 1f) * 0.05f) * env * 0.8f
-        }
+        out
     }
 
     private fun play(buf: ShortArray) {
@@ -111,14 +61,13 @@ object IntroSound {
                     track.release()
                 } catch (e: Exception) {
                 }
-            }, buf.size * 1000L / RATE + 400L)
+            }, buf.size * 1000L / RATE + 300L)
         } catch (e: Exception) {
         }
     }
 
-    fun boom() = play(boomBuf())
-    fun hit() = play(hitBuf())
-    fun whoosh() = play(whooshBuf())
-    fun shine() = play(shineBuf())
-    fun drone() = play(droneBuf())
+    /** Play the click for one typed character. */
+    fun key(c: Char) {
+        play(keyBuf(if (c == ' ') 4 else rnd.nextInt(4)))
+    }
 }

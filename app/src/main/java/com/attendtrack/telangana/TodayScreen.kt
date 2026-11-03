@@ -334,10 +334,10 @@ fun TodayScreen(vm: AttendViewModel) {
                             .fillMaxWidth()
                             .then(shake)
                             .background(
-                                Brush.linearGradient(listOf(Color(0xFF2B3470), Color(0xFF151A2B))),
+                                Brush.linearGradient(listOf(Themes.heroTop, Themes.heroBottom)),
                                 heroShape
                             )
-                            .border(1.dp, Color(0xFF3A4392), heroShape)
+                            .border(1.dp, Themes.heroBorder, heroShape)
                             .padding(20.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -419,7 +419,7 @@ fun TodayScreen(vm: AttendViewModel) {
                                 if (sel) AppAccent else AppCard, tween(300), label = "dayBg"
                             )
                             val dayMuted by animateColorAsState(
-                                if (sel) Color(0xFFDDE0FF) else todayMuted, tween(300), label = "dayMuted"
+                                if (sel) AppOnAccent.copy(alpha = 0.8f) else todayMuted, tween(300), label = "dayMuted"
                             )
                             val dayScale by animateFloatAsState(
                                 if (sel) 1.07f else 1f,
@@ -450,14 +450,14 @@ fun TodayScreen(vm: AttendViewModel) {
                                     d.dayOfMonth.toString(),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = Color.White
+                                    color = if (sel) AppOnAccent else Color.White
                                 )
                                 Spacer(Modifier.height(3.dp))
                                 Box(
                                     Modifier
                                         .size(5.dp)
                                         .graphicsLayer { alpha = if (isHoliday(d)) 1f else 0f }
-                                        .background(if (sel) Color.White else StatusAmber, CircleShape)
+                                        .background(if (sel) AppOnAccent else StatusAmber, CircleShape)
                                 )
                             }
                         }

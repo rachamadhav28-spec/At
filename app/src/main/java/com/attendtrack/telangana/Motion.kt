@@ -96,7 +96,7 @@ fun ConfettiBurst(trigger: Int, modifier: Modifier = Modifier) {
     if (p.value < 1f) {
         Canvas(modifier) {
             val colors = listOf(
-                Color(0xFF3DDC97), Color(0xFF5B6CFF), Color(0xFFFFB547),
+                Color(0xFF3DDC97), AppAccent, Color(0xFFFFB547),
                 Color(0xFFFF6B8A), Color.White
             )
             for (i in 0 until 28) {

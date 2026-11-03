@@ -167,6 +167,43 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Fill subject totals from a parsed attendance PDF. Returns a short message through [done]. */
+    fun applyAttendance(r: AttendanceResult, done: (String) -> Unit) {
+        viewModelScope.launch {
+            val all = dao.allSubjects()
+            if (r.perSubject.isNotEmpty()) {
+                var n = 0
+                for ((name, pair) in r.perSubject) {
+                    val s = all.firstOrNull { it.name == name } ?: continue
+                    dao.update(s.copy(attended = pair.first, held = pair.second))
+                    n++
+                }
+                done("Updated $n subjects from the PDF")
+                return@launch
+            }
+            val ov = r.overall
+            if (ov == null || ov.second <= 0 || all.isEmpty()) {
+                done("Nothing to apply")
+                return@launch
+            }
+            val (a, h) = ov
+            val weights = all.map { it.held }.let { w -> if (w.sum() == 0) all.map { 1 } else w }
+            val total = weights.sum()
+            var heldLeft = h
+            var attLeft = a
+            all.forEachIndexed { i, s ->
+                val last = i == all.lastIndex
+                val sh = if (last) heldLeft else (h.toLong() * weights[i] / total).toInt()
+                val sa = if (last) attLeft else Math.round(sh.toDouble() * a / h).toInt()
+                val saFixed = sa.coerceIn(0, sh)
+                heldLeft -= sh
+                attLeft -= saFixed
+                dao.update(s.copy(attended = saFixed, held = sh))
+            }
+            done("Set overall attendance to $a of $h, spread across subjects")
+        }
+    }
+
     fun edit(s: Subject, name: String, attended: Int, held: Int) {
         viewModelScope.launch {
             dao.update(s.copy(name = name, attended = attended, held = held))

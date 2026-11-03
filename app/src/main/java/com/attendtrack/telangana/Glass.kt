@@ -40,11 +40,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 // Palette
-val AppBg = Color(0xFF0E1116)
-val AppCard = Color(0xFF171B22)
-val AppBorder = Color(0xFF2A303B)
-val AppAccent = Color(0xFF5B6CFF)
-val AppAccentSoft = Color(0xFF8C98FF)
+val AppBg: Color get() = Themes.bg
+val AppCard: Color get() = Themes.card
+val AppBorder: Color get() = Themes.border
+val AppAccent: Color get() = Themes.accent
+val AppAccentSoft: Color get() = Themes.accentSoft
+val AppOnAccent: Color get() = Themes.onAccent
 val StatusGreen = Color(0xFF3DDC97)
 val StatusAmber = Color(0xFFFFB547)
 val StatusRed = Color(0xFFFF6B6B)
@@ -77,7 +78,7 @@ fun GlassTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = AppAccentSoft,
-            onPrimary = Color.Black,
+            onPrimary = AppOnAccent,
             background = AppBg,
             surface = AppBg,
             onBackground = Color.White,
@@ -125,7 +126,7 @@ fun Button(
         label = "press"
     )
     val bg by animateColorAsState(
-        if (pressed) Color(0xFF4757E0) else AppAccent,
+        if (pressed) androidx.compose.ui.graphics.lerp(AppAccent, Color.Black, 0.18f) else AppAccent,
         label = "bg"
     )
     Row(
@@ -140,7 +141,7 @@ fun Button(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        CompositionLocalProvider(LocalContentColor provides Color.White) { content() }
+        CompositionLocalProvider(LocalContentColor provides AppOnAccent) { content() }
     }
 }
 
