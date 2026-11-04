@@ -26,6 +26,7 @@ object Sounds {
     private val rnd = Random(System.nanoTime())
     private val cache = HashMap<String, ShortArray>()
     private val validCache = HashMap<Int, Boolean>()
+    private var lastKey: String? = null
 
     private fun allSounds(): List<Int> =
         R.raw::class.java.fields
@@ -50,7 +51,9 @@ object Sounds {
     }
 
     fun play(ctx: Context, present: Boolean, pct: Double) {
-        val ids = allSounds().filter { isValidAudio(ctx, it) }.shuffled()
+        var ids = allSounds().filter { isValidAudio(ctx, it) }.shuffled()
+        // never play the same file twice in a row (when there is a choice)
+        if (ids.size > 1 && "raw${ids[0]}" == lastKey) ids = ids.drop(1) + ids[0]
         for (id in ids) {
             val mp = try {
                 MediaPlayer.create(ctx, id)
@@ -58,6 +61,7 @@ object Sounds {
                 null
             }
             if (mp != null) {
+                lastKey = "raw$id"
                 player?.release()
                 player = mp
                 mp.setOnCompletionListener {
@@ -157,7 +161,11 @@ object Sounds {
 
     private fun synth(present: Boolean) {
         val pool = if (present) happy else funny
-        playBuffer(pool[rnd.nextInt(pool.size)]())
+        var i = rnd.nextInt(pool.size)
+        // never repeat the previous built-in sound back to back
+        if (lastKey == "syn${present}$i") i = (i + 1 + rnd.nextInt(pool.size - 1)) % pool.size
+        lastKey = "syn${present}$i"
+        playBuffer(pool[i]())
     }
 
     private fun playBuffer(buf: ShortArray) {
