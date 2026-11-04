@@ -54,16 +54,20 @@ fun IntroScreen(onDone: () -> Unit) {
         }
         delay(600)
         for (i in 1..LINE1.length) {
+            if (done) return@LaunchedEffect
             typed1 = i
             IntroSound.key(LINE1[i - 1])
             delay(if (LINE1[i - 1] == ' ') 190L else 120L)
         }
+        if (done) return@LaunchedEffect
         delay(550) // cursor blinks after "APP BY"
         for (i in 1..LINE2.length) {
+            if (done) return@LaunchedEffect
             typed2 = i
             IntroSound.key(LINE2[i - 1])
             delay(if (LINE2[i - 1] == ' ') 200L else 105L)
         }
+        if (done) return@LaunchedEffect
         finished = true
         delay(1300)
         finish()
