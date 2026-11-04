@@ -183,7 +183,7 @@ private fun TodayToggle(
         if (selected) selectedBg else Color.Transparent, tween(250), label = "toggleBg"
     )
     val edge by animateColorAsState(
-        if (selected) selectedBg else Color(0xFF3A4250), tween(250), label = "toggleEdge"
+        if (selected) selectedBg else Color(0x38FFFFFF), tween(250), label = "toggleEdge"
     )
     val fg by animateColorAsState(
         if (selected) Color.Black else Color.White, tween(250), label = "toggleFg"
@@ -334,10 +334,10 @@ fun TodayScreen(vm: AttendViewModel) {
                             .fillMaxWidth()
                             .then(shake)
                             .background(
-                                Brush.linearGradient(listOf(Color(0xFF2B3470), Color(0xFF151A2B))),
+                                Brush.linearGradient(listOf(Themes.heroTop, Themes.heroBottom)),
                                 heroShape
                             )
-                            .border(1.dp, Color(0xFF3A4392), heroShape)
+                            .border(1.dp, Themes.heroBorder, heroShape)
                             .padding(20.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -375,7 +375,7 @@ fun TodayScreen(vm: AttendViewModel) {
                         Row(
                             Modifier
                                 .fillMaxWidth()
-                                .background(Color(0x33000000), RoundedCornerShape(16.dp))
+                                .background(Color(0x590A0C18), RoundedCornerShape(18.dp))
                                 .padding(vertical = 12.dp),
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
@@ -416,10 +416,10 @@ fun TodayScreen(vm: AttendViewModel) {
                             val sel = d == date
                             val shape = RoundedCornerShape(18.dp)
                             val dayBg by animateColorAsState(
-                                if (sel) AppAccent else AppCard, tween(300), label = "dayBg"
+                                if (sel) Color.White else AppCard, tween(300), label = "dayBg"
                             )
                             val dayMuted by animateColorAsState(
-                                if (sel) Color(0xFFDDE0FF) else todayMuted, tween(300), label = "dayMuted"
+                                if (sel) Color(0xFF3A2BB5) else todayMuted, tween(300), label = "dayMuted"
                             )
                             val dayScale by animateFloatAsState(
                                 if (sel) 1.07f else 1f,
@@ -435,7 +435,7 @@ fun TodayScreen(vm: AttendViewModel) {
                                     }
                                     .clip(shape)
                                     .background(dayBg, shape)
-                                    .border(1.dp, if (sel) AppAccent else AppBorder, shape)
+                                    .border(1.dp, if (sel) Color.White else AppBorder, shape)
                                     .clickable { go(d) }
                                     .padding(vertical = 10.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
@@ -450,14 +450,14 @@ fun TodayScreen(vm: AttendViewModel) {
                                     d.dayOfMonth.toString(),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = Color.White
+                                    color = if (sel) Color(0xFF0A0C18) else Color.White
                                 )
                                 Spacer(Modifier.height(3.dp))
                                 Box(
                                     Modifier
                                         .size(5.dp)
                                         .graphicsLayer { alpha = if (isHoliday(d)) 1f else 0f }
-                                        .background(if (sel) Color.White else StatusAmber, CircleShape)
+                                        .background(if (sel) Color(0xFF3A2BB5) else StatusAmber, CircleShape)
                                 )
                             }
                         }

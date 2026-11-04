@@ -13,7 +13,24 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -22,9 +39,6 @@ import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,15 +51,27 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 
+private const val INTRO_MAX_OPENS = 3
+
 class MainActivity : ComponentActivity() {
     private val vm: AttendViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Motion.load(this)
+        Themes.load(this)
+        Sounds.load(this)
+        Timetable.load(this)
+        // The intro plays only the first 3 times the app is opened.
+        val prefs = getSharedPreferences("attendtrack", 0)
+        val opens = prefs.getInt("intro_opens", 0)
+        val playIntro = savedInstanceState == null && opens < INTRO_MAX_OPENS
+        if (savedInstanceState == null && opens < INTRO_MAX_OPENS) {
+            prefs.edit().putInt("intro_opens", opens + 1).apply()
+        }
         setContent {
             GlassTheme {
-                var showIntro by rememberSaveable { mutableStateOf(true) }
+                var showIntro by rememberSaveable { mutableStateOf(playIntro) }
                 AnimatedContent(
                     targetState = showIntro,
                     transitionSpec = {
@@ -74,36 +100,56 @@ private val tabs = listOf(
 fun AppShell(vm: AttendViewModel) {
     var tab by rememberSaveable { mutableStateOf(0) }
     Scaffold(
-        containerColor = AppBg,
+        containerColor = Color.Transparent,
+        contentColor = Color.White,
         bottomBar = {
-            NavigationBar(containerColor = AppCard) {
+            val pill = RoundedCornerShape(32.dp)
+            Row(
+                Modifier
+                    .padding(start = 28.dp, end = 28.dp, bottom = 18.dp)
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .background(Color(0x1FFFFFFF), pill)
+                    .border(1.dp, Color(0x38FFFFFF), pill)
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 tabs.forEachIndexed { i, t ->
-                    NavigationBarItem(
-                        selected = tab == i,
-                        onClick = { tab = i },
-                        icon = {
-                            val pop by animateFloatAsState(
-                                if (tab == i) 1.25f else 1f,
-                                spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                                label = "tabIcon"
-                            )
-                            Icon(
-                                t.icon, t.label,
-                                Modifier.graphicsLayer {
-                                    scaleX = pop
-                                    scaleY = pop
-                                }
-                            )
-                        },
-                        label = { Text(t.label) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color.White,
-                            selectedTextColor = Color.White,
-                            indicatorColor = AppAccent,
-                            unselectedIconColor = Color(0xFF9A9A9A),
-                            unselectedTextColor = Color(0xFF9A9A9A)
-                        )
+                    val sel = tab == i
+                    val pop by animateFloatAsState(
+                        if (sel) 1.1f else 1f,
+                        spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                        label = "tabIcon"
                     )
+                    Row(
+                        Modifier
+                            .weight(if (sel) 2.2f else 1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(if (sel) Color.White else Color.Transparent)
+                            .clickable { tab = i },
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            t.icon, t.label,
+                            Modifier.size(22.dp).graphicsLayer {
+                                scaleX = pop
+                                scaleY = pop
+                            },
+                            tint = if (sel) Color(0xFF0A0C18) else Color(0xFFE8EAF6)
+                        )
+                        if (sel) {
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                t.label,
+                                color = Color(0xFF0A0C18),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                        }
+                    }
                 }
             }
         }

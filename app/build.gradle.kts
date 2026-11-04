@@ -13,13 +13,19 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+        // Injected at build time (GitHub Actions secret GEMINI_API_KEY); never stored in the repo.
+        buildConfigField("String", "SAMBANOVA_API_KEY", "\"${System.getenv("SAMBANOVA_API_KEY") ?: ""}\"")
+        buildConfigField("String", "GEMINI_API_KEY", "\"${System.getenv("GEMINI_API_KEY") ?: ""}\"")
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
 }
 
@@ -36,4 +42,6 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+    // On-device text recognition (model bundled in the app, works offline) for PDF import
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 }

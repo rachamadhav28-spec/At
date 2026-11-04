@@ -6,6 +6,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +32,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
@@ -40,11 +43,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 // Palette
-val AppBg = Color(0xFF0E1116)
-val AppCard = Color(0xFF171B22)
-val AppBorder = Color(0xFF2A303B)
-val AppAccent = Color(0xFF5B6CFF)
-val AppAccentSoft = Color(0xFF8C98FF)
+val AppBg: Color get() = Themes.bg
+val AppCard: Color get() = Themes.card
+val AppBorder: Color get() = Themes.border
+val AppAccent: Color get() = Themes.accent
+val AppAccentSoft: Color get() = Themes.accentSoft
+val AppOnAccent: Color get() = Themes.onAccent
 val StatusGreen = Color(0xFF3DDC97)
 val StatusAmber = Color(0xFFFFB547)
 val StatusRed = Color(0xFFFF6B6B)
@@ -77,7 +81,7 @@ fun GlassTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = AppAccentSoft,
-            onPrimary = Color.Black,
+            onPrimary = AppOnAccent,
             background = AppBg,
             surface = AppBg,
             onBackground = Color.White,
@@ -87,13 +91,28 @@ fun GlassTheme(content: @Composable () -> Unit) {
         ),
         typography = AppTypography
     ) {
-        Box(Modifier.fillMaxSize().background(AppBg)) { content() }
+        Box(Modifier.fillMaxSize().background(AppBg)) {
+            Canvas(Modifier.fillMaxSize()) {
+                val b = Themes.blobs
+                fun glow(c: Color, cx: Float, cy: Float, r: Float, a: Float) = drawCircle(
+                    Brush.radialGradient(
+                        listOf(c.copy(alpha = a), Color.Transparent),
+                        center = Offset(cx, cy), radius = r
+                    ),
+                    radius = r, center = Offset(cx, cy)
+                )
+                glow(b[0], size.width * 0.1f, size.height * 0.04f, size.width * 0.95f, 0.55f)
+                glow(b[1], size.width * 1.0f, size.height * 0.45f, size.width * 0.85f, 0.32f)
+                glow(b[2], size.width * 0.1f, size.height * 0.95f, size.width * 0.85f, 0.30f)
+            }
+            content()
+        }
     }
 }
 
 @Composable
 fun Card(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(28.dp)
     val enter = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         enter.animateTo(1f, tween(450, easing = FastOutSlowInEasing))
@@ -125,7 +144,7 @@ fun Button(
         label = "press"
     )
     val bg by animateColorAsState(
-        if (pressed) Color(0xFF4757E0) else AppAccent,
+        if (pressed) androidx.compose.ui.graphics.lerp(AppAccent, Color.Black, 0.18f) else AppAccent,
         label = "bg"
     )
     Row(
@@ -140,7 +159,7 @@ fun Button(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        CompositionLocalProvider(LocalContentColor provides Color.White) { content() }
+        CompositionLocalProvider(LocalContentColor provides AppOnAccent) { content() }
     }
 }
 
