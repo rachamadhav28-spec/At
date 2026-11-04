@@ -18,6 +18,7 @@ jobs:
       - run: gradle assembleDebug --no-daemon
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
       - uses: actions/upload-artifact@v4
         with:
           name: attendtrack-debug-apk

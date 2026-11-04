@@ -24,7 +24,7 @@ object GeminiReader {
         "eng_graphics_lab" to Timetable.GRAPH
     )
 
-    private fun prompt(serial: String) = """
+    internal fun prompt(serial: String) = """
 This PDF is a class attendance sheet. Each page has a header row, then a row "No of Classes" that gives the
 classes held per column, then one row per student: S.No, Roll No, Name, one attended-count per subject, Total, %.
 The sheet may contain several sections (e.g. CSE-A then CSE-B) that each restart S.No at 1. Use the FIRST
@@ -114,7 +114,7 @@ If the S.No does not exist reply {"found":false}.
             }
         }
 
-    private fun parse(o: JSONObject, serial: String): Outcome<AttendanceResult> {
+    internal fun parse(o: JSONObject, serial: String): Outcome<AttendanceResult> {
         if (!o.optBoolean("found", false)) {
             return Outcome(null, "S.No $serial was not found in this PDF.")
         }

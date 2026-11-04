@@ -122,6 +122,33 @@ object PdfImport {
         Outcome<TimetableResult>(null, "Could not read this file as a PDF.")
     }
 
+    /** Each page as text rows (words on the same line joined), for sending to a text-only AI model. */
+    suspend fun readPageRows(ctx: Context, uri: Uri, maxPages: Int): Outcome<List<String>> = try {
+        withRenderer(ctx, uri) { r ->
+            val pages = ArrayList<String>()
+            for (i in 0 until minOf(r.pageCount, maxPages)) {
+                val bmp = withContext(Dispatchers.Default) { render(r, i) }
+                val lines = recognize(bmp)
+                bmp.recycle()
+                val rows = ArrayList<MutableList<OcrLine>>()
+                for (l in lines.sortedBy { it.box.centerY() }) {
+                    val last = rows.lastOrNull()
+                    if (last != null &&
+                        abs(last.map { it.box.centerY() }.average() - l.box.centerY()) <= l.box.height() * 0.6
+                    ) last.add(l) else rows.add(mutableListOf(l))
+                }
+                pages.add(
+                    "PAGE ${i + 1}\n" + rows.joinToString("\n") { row ->
+                        row.sortedBy { it.box.left }.joinToString("  ") { it.text.trim() }
+                    }
+                )
+            }
+            Outcome<List<String>>(pages, null)
+        }
+    } catch (e: Exception) {
+        Outcome<List<String>>(null, "Could not read this file as a PDF.")
+    }
+
     suspend fun readAttendance(ctx: Context, uri: Uri, roll: String): Outcome<AttendanceResult> = try {
         withRenderer(ctx, uri) { r ->
             var found: AttendanceResult? = null

@@ -14,6 +14,7 @@ android {
         versionCode = 1
         versionName = "1.0"
         // Injected at build time (GitHub Actions secret GEMINI_API_KEY); never stored in the repo.
+        buildConfigField("String", "SAMBANOVA_API_KEY", "\"${System.getenv("SAMBANOVA_API_KEY") ?: ""}\"")
         buildConfigField("String", "GEMINI_API_KEY", "\"${System.getenv("GEMINI_API_KEY") ?: ""}\"")
     }
     compileOptions {

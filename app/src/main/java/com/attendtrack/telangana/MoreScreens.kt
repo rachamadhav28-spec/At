@@ -351,7 +351,9 @@ fun MoreScreen(vm: AttendViewModel) {
             busy = true
             msg = "AI is reading your attendance..."
             scope.launch {
-                val o = GeminiReader.readAttendance(context, uri, roll.trim())
+                val o = if (BuildConfig.SAMBANOVA_API_KEY.isNotBlank())
+                    SambaReader.readAttendance(context, uri, roll.trim())
+                else GeminiReader.readAttendance(context, uri, roll.trim())
                 busy = false
                 if (o.value != null) {
                     attPreview = o.value
