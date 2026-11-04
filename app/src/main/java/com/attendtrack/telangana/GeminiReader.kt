@@ -12,7 +12,7 @@ import java.net.URL
 
 /** Reads the attendance PDF with Google's Gemini model and returns the student's numbers. */
 object GeminiReader {
-    private const val MODEL = "gemini-flash-latest"
+    private val models = listOf("gemini-flash-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite")
 
     private val keys = listOf(
         "maths" to Timetable.MATHS,
@@ -76,18 +76,28 @@ If the S.No does not exist reply {"found":false}.
                     )
                     .put("generationConfig", JSONObject().put("responseMimeType", "application/json").put("temperature", 0))
 
-                val conn = URL("https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent")
-                    .openConnection() as HttpURLConnection
-                conn.requestMethod = "POST"
-                conn.connectTimeout = 20000
-                conn.readTimeout = 90000
-                conn.doOutput = true
-                conn.setRequestProperty("Content-Type", "application/json")
-                conn.setRequestProperty("x-goog-api-key", key)
-                conn.outputStream.use { it.write(body.toString().toByteArray()) }
-                val code = conn.responseCode
-                val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
-                    ?.bufferedReader()?.use { it.readText() } ?: ""
+                // Google sometimes answers "high demand" (503) or "slow down" (429): retry, then try a lighter model.
+                var code = 0
+                var text = ""
+                outer@ for (model in models) {
+                    for (attempt in 0 until 2) {
+                        val conn = URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent")
+                            .openConnection() as HttpURLConnection
+                        conn.requestMethod = "POST"
+                        conn.connectTimeout = 20000
+                        conn.readTimeout = 90000
+                        conn.doOutput = true
+                        conn.setRequestProperty("Content-Type", "application/json")
+                        conn.setRequestProperty("x-goog-api-key", key)
+                        conn.outputStream.use { it.write(body.toString().toByteArray()) }
+                        code = conn.responseCode
+                        text = (if (code in 200..299) conn.inputStream else conn.errorStream)
+                            ?.bufferedReader()?.use { it.readText() } ?: ""
+                        if (code in 200..299) break@outer
+                        if (code != 503 && code != 429 && code != 500) break@outer
+                        kotlinx.coroutines.delay(1500L * (attempt + 1))
+                    }
+                }
                 if (code !in 200..299) {
                     val reason = runCatching { JSONObject(text).getJSONObject("error").getString("message") }
                         .getOrDefault("HTTP $code")

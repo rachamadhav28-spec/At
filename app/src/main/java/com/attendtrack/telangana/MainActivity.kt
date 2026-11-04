@@ -100,6 +100,7 @@ fun AppShell(vm: AttendViewModel) {
     var tab by rememberSaveable { mutableStateOf(0) }
     Scaffold(
         containerColor = Color.Transparent,
+        contentColor = Color.White,
         bottomBar = {
             val pill = RoundedCornerShape(32.dp)
             Row(
