@@ -124,15 +124,12 @@ object PdfImport {
 
     suspend fun readAttendance(ctx: Context, uri: Uri, roll: String): Outcome<AttendanceResult> = try {
         withRenderer(ctx, uri) { r ->
-            var headers: List<Pair<String, Int>> = emptyList()
             var found: AttendanceResult? = null
-            for (i in 0 until minOf(r.pageCount, 20)) {
+            for (i in 0 until minOf(r.pageCount, 30)) {
                 val bmp = withContext(Dispatchers.Default) { render(r, i) }
                 val lines = recognize(bmp)
                 bmp.recycle()
-                val pageHeaders = subjectHeaders(lines, Int.MAX_VALUE)
-                if (pageHeaders.size >= 2) headers = pageHeaders
-                val res = withContext(Dispatchers.Default) { parseAttendance(lines, roll, headers) }
+                val res = withContext(Dispatchers.Default) { parseAttendance(lines, roll) }
                 if (res != null) {
                     found = res
                     break
@@ -151,7 +148,7 @@ object PdfImport {
     fun matchSubject(text: String): String? {
         val t = text.lowercase()
         return when {
-            "graphic" in t -> Timetable.GRAPH
+            "grap" in t -> Timetable.GRAPH
             "dld" in t || "digital" in t || "logic" in t -> Timetable.DLD
             "math" in t -> Timetable.MATHS
             "chem" in t && "lab" in t -> Timetable.CLAB
@@ -314,97 +311,115 @@ object PdfImport {
 
     private fun norm(s: String) = s.uppercase().filter { it.isLetterOrDigit() }
 
-    /** Subject names found in header text, with their horizontal centre. */
-    private fun subjectHeaders(lines: List<OcrLine>, belowY: Int): List<Pair<String, Int>> {
-        val out = ArrayList<Pair<String, Int>>()
-        for (l in lines) {
-            if (l.box.centerY() >= belowY) continue
-            val s = matchSubject(l.text) ?: continue
-            if (l.text.any { it.isDigit() } && l.text.count { it.isLetter() } < 3) continue
-            out.add(s to l.box.centerX())
+    private class Tok(val text: String, val x: Int)
+
+    /** Numbers in the given lines (one row), each with an estimated horizontal centre. */
+    private fun numbersIn(row: List<OcrLine>): List<Tok> {
+        val out = ArrayList<Tok>()
+        for (l in row.sortedBy { it.box.left }) {
+            val parts = l.text.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+            parts.forEachIndexed { idx, p ->
+                val c = p.replace(',', '.')
+                if (numberToken.matches(c)) {
+                    val x = if (parts.size == 1) l.box.centerX()
+                    else l.box.left + ((idx + 0.5f) / parts.size * l.box.width()).toInt()
+                    out.add(Tok(c, x))
+                }
+            }
         }
-        return out.distinct()
+        return out.sortedBy { it.x }
     }
 
-    private fun pairFrom(ints: List<Int>, pct: Double?): Pair<Int, Int>? {
-        val cands = ArrayList<Pair<Int, Int>>()
-        for (a in ints) for (h in ints) if (h > 0 && a <= h && !(a == h && ints.size > 2)) cands.add(a to h)
-        if (cands.isEmpty()) return null
-        if (pct != null) {
-            val best = cands.minByOrNull { abs(it.first * 100.0 / it.second - pct) } ?: return null
-            return if (abs(best.first * 100.0 / best.second - pct) <= 1.0) best else null
-        }
-        return if (ints.size == 2) ints.min() to ints.max() else null
-    }
+    // The college sheet's column order, used when the header text cannot be matched.
+    private val sheetOrder = listOf(
+        Timetable.MATHS, Timetable.CHEM, Timetable.ENG, Timetable.DLD,
+        Timetable.CLAB, Timetable.ELAB, Timetable.GRAPH
+    )
 
-    fun parseAttendance(
-        lines: List<OcrLine>,
-        roll: String,
-        headers: List<Pair<String, Int>>
-    ): AttendanceResult? {
+    /**
+     * Reads one student's row from a class attendance sheet laid out as:
+     * S.No | Roll No | Name | subject columns... | Total | %   with a "No of Classes" row above
+     * the students that gives the classes held per column. The student is found by S.No
+     * (a short number in the first column) or by roll number.
+     */
+    fun parseAttendance(lines: List<OcrLine>, roll: String): AttendanceResult? {
         val target = norm(roll)
-        if (target.length < 3) return null
-        // A short all-digit value is an S.No: match the cell in the first (left-most) column exactly.
+        if (target.isEmpty()) return null
         val serial = target.all { it.isDigit() } && target.length <= 3
-        val rollLine = if (serial) {
+        val found: OcrLine? = if (serial) {
             val minL = lines.minOfOrNull { it.box.left } ?: 0
             val maxR = lines.maxOfOrNull { it.box.right } ?: 1
-            val edge = minL + (maxR - minL) * 0.18f
+            val edge = minL + (maxR - minL) * 0.12f
             lines.filter { it.box.left <= edge && norm(it.text) == target }
                 .minByOrNull { it.box.left }
         } else lines.firstOrNull { norm(it.text).contains(target) }
-        if (rollLine == null) return null
-        val cy = rollLine.box.centerY()
-        val tol = rollLine.box.height() * 0.7f
-        val row = lines.filter { abs(it.box.centerY() - cy) <= tol }.sortedBy { it.box.left }
+        val keyLine = found ?: return null
 
-        // numeric tokens to the right of the roll number
-        class Tok(val text: String, val x: Int)
-        val toks = ArrayList<Tok>()
-        var rollSeen = false
-        for (l in row) {
-            val parts = l.text.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
-            parts.forEachIndexed { idx, p ->
-                val x = l.box.left + ((idx + 0.5f) / parts.size * l.box.width()).toInt()
-                val isKey = if (serial) l === rollLine
-                else norm(p).contains(target) || (parts.size == 1 && norm(l.text).contains(target))
-                if (isKey) {
-                    rollSeen = true
-                    return@forEachIndexed
-                }
-                val clean = p.replace(',', '.')
-                if (rollSeen && numberToken.matches(clean)) toks.add(Tok(clean, x))
+        val cy = keyLine.box.centerY()
+        val rowTol = keyLine.box.height() * 0.7f
+        val rowLines = lines.filter {
+            abs(it.box.centerY() - cy) <= rowTol && it !== keyLine && it.box.left > keyLine.box.left
+        }
+        val rowText = (listOf(keyLine) + rowLines.sortedBy { it.box.left }).joinToString("  ") { it.text.trim() }
+        val stud = numbersIn(rowLines)
+
+        // nearest "No of Classes" row above the student
+        val labelLine = lines.filter {
+            norm(it.text).contains("NOOFCLASSES") && it.box.centerY() < cy
+        }.maxByOrNull { it.box.centerY() }
+            ?: return AttendanceResult(rowText, emptyMap(), null, null)
+        val cl = labelLine.box.centerY()
+        val classRow = lines.filter { abs(it.box.centerY() - cl) <= labelLine.box.height() * 0.7f }
+        val classes = numbersIn(classRow)
+        if (stud.size < 3 || classes.isEmpty()) return AttendanceResult(rowText, emptyMap(), null, null)
+
+        // pair each student number with its column's class count
+        val cols = ArrayList<Pair<Tok, Tok>>() // (class count, student value)
+        if (classes.size == stud.size) {
+            for (i in stud.indices) cols.add(classes[i] to stud[i])
+        } else {
+            for (t in stud) {
+                val c = classes.minByOrNull { abs(it.x - t.x) } ?: continue
+                cols.add(c to t)
             }
         }
-        val rowText = row.joinToString("  ") { it.text.trim() }
+        val hasTotals = cols.size >= 3 && cols.last().first.text.endsWith("%")
+        val subjectCols = if (hasTotals) cols.dropLast(2) else cols
 
-        val pctTok = toks.lastOrNull { it.text.endsWith("%") || it.text.contains('.') }
-        val pct = pctTok?.text?.removeSuffix("%")?.toDoubleOrNull()?.takeIf { it in 0.0..100.0 }
-        val intToks = toks.filter { !it.text.endsWith("%") && !it.text.contains('.') }
+        // header text above each column -> subject
+        val pageW = (lines.maxOfOrNull { it.box.right } ?: 1).toFloat()
+        val gap = if (classes.size > 1) (classes.last().x - classes.first().x) / (classes.size - 1) else 80
+        val lh = labelLine.box.height()
+        val headerFrags = lines.filter {
+            it.box.centerY() < cl - lh / 2 && it.box.centerY() > cl - lh * 6 &&
+                it.box.width() < pageW * 0.25f
+        }
+        val mapped = subjectCols.map { (c, _) ->
+            val frag = headerFrags.filter { abs(it.box.centerX() - c.x) <= gap * 0.6f }
+                .sortedBy { it.box.centerY() }.joinToString(" ") { it.text }
+            matchSubject(frag)
+        }
+        val names: List<String?> =
+            if (mapped.all { it != null } && mapped.toSet().size == mapped.size) mapped
+            else if (subjectCols.size == sheetOrder.size) sheetOrder
+            else mapped
 
-        // per subject, grouping numbers under the nearest header
         val perSubject = LinkedHashMap<String, Pair<Int, Int>>()
-        val hdr = headers
-        if (hdr.size >= 2) {
-            val groups = HashMap<String, MutableList<Tok>>()
-            for (t in toks) {
-                val h = hdr.minByOrNull { abs(it.second - t.x) } ?: continue
-                groups.getOrPut(h.first) { ArrayList() }.add(t)
-            }
-            for ((name, g) in groups) {
-                val gp = g.lastOrNull { it.text.endsWith("%") || it.text.contains('.') }
-                    ?.text?.removeSuffix("%")?.toDoubleOrNull()
-                val gi = g.filter { !it.text.endsWith("%") && !it.text.contains('.') }
-                    .mapNotNull { it.text.toIntOrNull() }
-                val pr = pairFrom(gi, gp)
-                if (pr != null) perSubject[name] = pr
-            }
+        subjectCols.forEachIndexed { i, (c, v) ->
+            val name = names.getOrNull(i) ?: return@forEachIndexed
+            val att = v.text.toDoubleOrNull()?.toInt()
+            val held = c.text.toDoubleOrNull()?.toInt()
+            if (att != null && held != null && held > 0 && att <= held) perSubject[name] = att to held
         }
-
-        val overall = if (perSubject.isEmpty()) {
-            pairFrom(intToks.mapNotNull { it.text.toIntOrNull() }.takeLast(4), pct)
-        } else null
-
+        var overall: Pair<Int, Int>? = null
+        var pct: Double? = null
+        if (hasTotals) {
+            val (tc, tv) = cols[cols.size - 2]
+            val a = tv.text.toDoubleOrNull()?.toInt()
+            val h = tc.text.toDoubleOrNull()?.toInt()
+            if (a != null && h != null && h > 0 && a <= h) overall = a to h
+            pct = cols.last().second.text.removeSuffix("%").toDoubleOrNull()
+        }
         return AttendanceResult(rowText, perSubject, overall, pct)
     }
 }
