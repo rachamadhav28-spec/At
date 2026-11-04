@@ -44,7 +44,7 @@ object Themes {
         ctx.getSharedPreferences("attendtrack", 0).edit().putString("theme", theme.name).apply()
     }
 
-    private val base = Color(0xFF0E1116)
+    private val base = Color(0xFF0A0C18)
 
     private fun luminance(c: Color) = 0.2126f * c.red + 0.7152f * c.green + 0.0722f * c.blue
 
@@ -57,19 +57,10 @@ object Themes {
             else -> lerp(base, current.strong, 0.06f)
         }
 
-    val card: Color
-        get() = when {
-            current === default -> Color(0xFF171B22)
-            isDark -> lerp(current.strong, Color.White, 0.08f)
-            else -> lerp(base, current.strong, 0.12f)
-        }
+    // Frosted-glass surfaces: a faint white veil over the background blobs, for every theme.
+    val card: Color get() = Color(0x17FFFFFF)
 
-    val border: Color
-        get() = when {
-            current === default -> Color(0xFF2A303B)
-            isDark -> lerp(current.strong, Color.White, 0.2f)
-            else -> lerp(base, current.strong, 0.28f)
-        }
+    val border: Color get() = Color(0x2EFFFFFF)
 
     val accent: Color get() = if (isDark) current.light else current.strong
 
@@ -78,24 +69,17 @@ object Themes {
     /** Text/icon colour that stays readable on top of [accent]. */
     val onAccent: Color get() = if (luminance(accent) > 0.55f) Color(0xFF111111) else Color.White
 
-    val heroTop: Color
-        get() = when {
-            current === default -> Color(0xFF2B3470)
-            isDark -> lerp(current.strong, Color.White, 0.16f)
-            else -> lerp(base, current.strong, 0.45f)
-        }
+    val heroTop: Color get() = Color(0x24FFFFFF)
 
-    val heroBottom: Color
-        get() = when {
-            current === default -> Color(0xFF151A2B)
-            isDark -> lerp(current.strong, Color.Black, 0.3f)
-            else -> lerp(base, current.strong, 0.1f)
-        }
+    val heroBottom: Color get() = Color(0x0FFFFFFF)
 
-    val heroBorder: Color
-        get() = when {
-            current === default -> Color(0xFF3A4392)
-            isDark -> lerp(current.strong, current.light, 0.45f)
-            else -> lerp(base, current.strong, 0.65f)
+    val heroBorder: Color get() = Color(0x38FFFFFF)
+
+    /** Soft background glows. */
+    val blobs: List<Color>
+        get() = if (current === default) {
+            listOf(Color(0xFF5B3DF5), Color(0xFF0FB5A6), Color(0xFFE0457B))
+        } else {
+            listOf(accent, accentSoft, current.strong)
         }
 }

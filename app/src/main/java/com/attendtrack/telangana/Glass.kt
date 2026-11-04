@@ -6,6 +6,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +32,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
@@ -88,13 +91,28 @@ fun GlassTheme(content: @Composable () -> Unit) {
         ),
         typography = AppTypography
     ) {
-        Box(Modifier.fillMaxSize().background(AppBg)) { content() }
+        Box(Modifier.fillMaxSize().background(AppBg)) {
+            Canvas(Modifier.fillMaxSize()) {
+                val b = Themes.blobs
+                fun glow(c: Color, cx: Float, cy: Float, r: Float, a: Float) = drawCircle(
+                    Brush.radialGradient(
+                        listOf(c.copy(alpha = a), Color.Transparent),
+                        center = Offset(cx, cy), radius = r
+                    ),
+                    radius = r, center = Offset(cx, cy)
+                )
+                glow(b[0], size.width * 0.1f, size.height * 0.04f, size.width * 0.95f, 0.55f)
+                glow(b[1], size.width * 1.0f, size.height * 0.45f, size.width * 0.85f, 0.32f)
+                glow(b[2], size.width * 0.1f, size.height * 0.95f, size.width * 0.85f, 0.30f)
+            }
+            content()
+        }
     }
 }
 
 @Composable
 fun Card(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(28.dp)
     val enter = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         enter.animateTo(1f, tween(450, easing = FastOutSlowInEasing))
