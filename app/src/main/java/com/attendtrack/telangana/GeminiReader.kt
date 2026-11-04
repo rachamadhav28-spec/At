@@ -12,7 +12,7 @@ import java.net.URL
 
 /** Reads the attendance PDF with Google's Gemini model and returns the student's numbers. */
 object GeminiReader {
-    private val models = listOf("gemini-flash-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite")
+    private val models = listOf("gemini-flash-latest", "gemini-3.8-flash", "gemini-flash-lite-latest")
 
     private val keys = listOf(
         "maths" to Timetable.MATHS,

@@ -77,13 +77,13 @@ private fun whenText(h: Holiday, today: LocalDate): String {
 
 @Composable
 private fun MoreChip(filled: Boolean, text: String) {
-    val shape = RoundedCornerShape(50)
+    val shape = RoundedCornerShape(if (text.length > 28) 18.dp else 50.dp)
     Text(
         text,
         modifier = Modifier
             .background(if (filled) Color.White else Color.Transparent, shape)
             .border(1.dp, Color.White, shape)
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         color = if (filled) Color.Black else Color.White,
         fontSize = 12.sp,
         fontWeight = FontWeight.Medium,
