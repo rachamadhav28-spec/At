@@ -60,6 +60,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Motion.load(this)
         Themes.load(this)
+        Sounds.load(this)
         Timetable.load(this)
         // The intro plays only the first 3 times the app is opened.
         val prefs = getSharedPreferences("attendtrack", 0)

@@ -7,6 +7,9 @@ import android.media.AudioTrack
 import android.media.MediaPlayer
 import android.os.Handler
 import android.os.Looper
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlin.math.exp
 import kotlin.math.sin
 import kotlin.random.Random
@@ -21,6 +24,23 @@ import kotlin.random.Random
  */
 object Sounds {
     private var player: MediaPlayer? = null
+
+    /** Master switch for the Present / Absent sounds (More screen). Saved on the phone. */
+    var enabled by mutableStateOf(true)
+        private set
+
+    fun load(ctx: Context) {
+        enabled = ctx.getSharedPreferences("attendtrack", 0).getBoolean("sounds_on", true)
+    }
+
+    fun setEnabled(ctx: Context, on: Boolean) {
+        enabled = on
+        ctx.getSharedPreferences("attendtrack", 0).edit().putBoolean("sounds_on", on).apply()
+        if (!on) {
+            player?.release()
+            player = null
+        }
+    }
     private const val RATE = 22050
     private const val TWO_PI = 6.2831855f
     private val rnd = Random(System.nanoTime())
@@ -51,6 +71,7 @@ object Sounds {
     }
 
     fun play(ctx: Context, present: Boolean, pct: Double) {
+        if (!enabled) return
         var ids = allSounds().filter { isValidAudio(ctx, it) }.shuffled()
         // never play the same file twice in a row (when there is a choice)
         if (ids.size > 1 && "raw${ids[0]}" == lastKey) ids = ids.drop(1) + ids[0]

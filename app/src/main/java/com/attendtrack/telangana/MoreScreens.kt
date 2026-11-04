@@ -265,6 +265,39 @@ private fun MotionSwitch() {
 }
 
 @Composable
+private fun SoundSwitch() {
+    val context = LocalContext.current
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Sounds", style = MaterialTheme.typography.titleMedium)
+            Text(
+                if (Sounds.enabled) "A random sound plays when you mark Present or Absent."
+                else "Silent. Nothing plays when you mark Present or Absent.",
+                style = MaterialTheme.typography.bodyLarge, color = moreMuted
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("On" to true, "Off" to false).forEach { (label, value) ->
+                    val sel = Sounds.enabled == value
+                    val shape = RoundedCornerShape(50)
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .clip(shape)
+                            .background(if (sel) AppAccent else Color.Transparent, shape)
+                            .border(1.dp, if (sel) AppAccent else AppBorder, shape)
+                            .clickable { Sounds.setEnabled(context, value) }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(label, fontWeight = FontWeight.Medium, color = if (sel) AppOnAccent else Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ThemePicker() {
     val context = LocalContext.current
     Card(Modifier.fillMaxWidth()) {
@@ -419,6 +452,7 @@ fun MoreScreen(vm: AttendViewModel) {
             }
         }
         item { MotionSwitch() }
+        item { SoundSwitch() }
         item { ThemePicker() }
         item {
             MoreCard(
