@@ -349,9 +349,9 @@ fun MoreScreen(vm: AttendViewModel) {
     ) { uri ->
         if (uri != null) {
             busy = true
-            msg = "Reading attendance..."
+            msg = "AI is reading your attendance..."
             scope.launch {
-                val o = PdfImport.readAttendance(context, uri, roll.trim())
+                val o = GeminiReader.readAttendance(context, uri, roll.trim())
                 busy = false
                 if (o.value != null) {
                     attPreview = o.value
