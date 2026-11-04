@@ -139,7 +139,7 @@ object PdfImport {
                 }
             }
             if (found == null) {
-                Outcome<AttendanceResult>(null, "Roll number $roll was not found in this PDF.")
+                Outcome<AttendanceResult>(null, "S.No / roll number $roll was not found in this PDF.")
             } else Outcome<AttendanceResult>(found, null)
         }
     } catch (e: Exception) {
@@ -344,7 +344,16 @@ object PdfImport {
     ): AttendanceResult? {
         val target = norm(roll)
         if (target.length < 3) return null
-        val rollLine = lines.firstOrNull { norm(it.text).contains(target) } ?: return null
+        // A short all-digit value is an S.No: match the cell in the first (left-most) column exactly.
+        val serial = target.all { it.isDigit() } && target.length <= 3
+        val rollLine = if (serial) {
+            val minL = lines.minOfOrNull { it.box.left } ?: 0
+            val maxR = lines.maxOfOrNull { it.box.right } ?: 1
+            val edge = minL + (maxR - minL) * 0.18f
+            lines.filter { it.box.left <= edge && norm(it.text) == target }
+                .minByOrNull { it.box.left }
+        } else lines.firstOrNull { norm(it.text).contains(target) }
+        if (rollLine == null) return null
         val cy = rollLine.box.centerY()
         val tol = rollLine.box.height() * 0.7f
         val row = lines.filter { abs(it.box.centerY() - cy) <= tol }.sortedBy { it.box.left }
@@ -357,7 +366,9 @@ object PdfImport {
             val parts = l.text.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
             parts.forEachIndexed { idx, p ->
                 val x = l.box.left + ((idx + 0.5f) / parts.size * l.box.width()).toInt()
-                if (norm(p).contains(target) || (parts.size == 1 && norm(l.text).contains(target))) {
+                val isKey = if (serial) l === rollLine
+                else norm(p).contains(target) || (parts.size == 1 && norm(l.text).contains(target))
+                if (isKey) {
                     rollSeen = true
                     return@forEachIndexed
                 }

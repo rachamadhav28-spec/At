@@ -437,7 +437,7 @@ fun MoreScreen(vm: AttendViewModel) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Attendance from PDF", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Type your roll number, then upload your class attendance PDF. Your row is found and the percentage is filled in.",
+                        "Type your S.No (the serial number in the class list), then upload the attendance PDF. Your row is found by that number and the percentage is filled in.",
                         style = MaterialTheme.typography.bodyLarge, color = moreMuted
                     )
                     OutlinedTextField(
@@ -447,12 +447,12 @@ fun MoreScreen(vm: AttendViewModel) {
                             context.getSharedPreferences("attendtrack", 0).edit()
                                 .putString("roll_no", it).apply()
                         },
-                        label = { Text("Roll number") },
+                        label = { Text("Your S.No (or roll number)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     Button(onClick = {
-                        if (roll.isBlank()) msg = "Type your roll number first"
+                        if (roll.isBlank()) msg = "Type your S.No first"
                         else if (!busy) attPicker.launch(arrayOf("application/pdf"))
                     }) { Text("Upload attendance PDF") }
                 }
